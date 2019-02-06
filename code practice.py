@@ -31,6 +31,10 @@ Examples:
 [5, 2,  1] false
 """
 
+def next_relative_index(index, array):
+    return (index + array[index]) % len(array) # wrap around left/right
+#def
+
 # My first thought was to do N jumps, then see if I'm back at index 0.
 # I have to make sure I don't revisit index 0 in the middle of the cycle.
 # If I do, the cycle is too short, and I return false.
@@ -42,13 +46,12 @@ Examples:
 # Space Complexity: O(1)
 def is_complete_cycle_counting(array):
     #TODO: validate array?
-    length = len(array)
     current_index = 0
-    for i in range(length-1):  # jump N-1 times
-        current_index = (current_index + array[current_index]) % length # make the jump
+    for i in range(len(array)-1):  # jump N-1 times
+        current_index = next_relative_index(current_index, array) # make the jump
         if current_index == 0: # if we see 0 before the end
             return False       # the cycle was too short
-    current_index = (current_index + array[current_index]) % length # make the last jump
+    current_index = next_relative_index(current_index, array) # make the last jump
     # if we made it back to index 0 after N total jumps, it's 1 full cycle
     return current_index == 0
 #def
@@ -64,14 +67,13 @@ def is_complete_cycle_counting(array):
 def is_complete_cycle_sentinel(array):
     jumps = 0
     index = 0
-    length = len(array)
-    while array[index] != 0:    # until we find a 0
-        relative = array[index] # store the relative index
-        array[index] = 0        # drop a sentinel
-        index = (index + relative) % length # make the jump (wrap if out of bounds)
-        jumps += 1              # count the jump
+    while array[index] != 0: # until we find a 0
+        next_index = next_relative_index(index, array) # store the next index
+        array[index] = 0     # drop a sentinel
+        index = next_index   # make the jump
+        jumps += 1           # count the jump
     #while
-    return jumps == length # if we made N jumps, it's a complete cycle
+    return jumps == len(array) # if we made N jumps, it's a complete cycle
 #def
 
 # A third way to do this would be to create a boolean array of equal length.
@@ -82,12 +84,22 @@ def is_complete_cycle_sentinel(array):
 # If *any* flag is false, it's not a complete cycle, return false.
 # This is probably the most natural way to think about / approach the problem.
 # Main downside is the extra memory you need for the flag array.
-# You use bitflags, but that's still O(N)
-# I didn't actually implement this one... yet...
+# You could use bitflags, but that's still O(N)
+# For further simplicity, I'll just use a hashset and store each visited index.
+# If my current index is in the visited set, I've hit a cycle.
+# If the length of the visited set is equal to the length of the array, I visited every index.
+# However, if the last node is 0, it's a false positive (assumption)
+# So I *also* need to check if I made it back the start (0 index)
 # Time Complexity: O(N)
 # Space Complexity: O(N)
 def is_complete_cycle_flags(array):
-    return False
+    index = 0
+    visited = set()
+    while index not in visited:
+        visited.add(index)
+        index = next_relative_index(index, array) # make the jump
+    #while
+    return len(visited) == len(array) and index == 0
 #def
 
 test_arrays = [
@@ -102,6 +114,7 @@ print("Testing Relative Cycles...\n")
 
 for test_array in test_arrays:
     print(test_array)
+    print(is_complete_cycle_flags(test_array))
     print(is_complete_cycle_counting(test_array))
     print(is_complete_cycle_sentinel(test_array))
 #for
@@ -179,7 +192,17 @@ class BagOfMarbles:
     # Time Complexity: O(C)
     def add_marble(self, color):
         self.total += 1                             # add 1 to total
-        self.marbles[self.colors.index(color)] += 1 # add 1 to specified color
+        self.counts[self.colors.index(color)] += 1 # add 1 to specified color
+        self.count_marbles() # update cumulative totals for peek()
+    #def
+    
+    # Adds 1 marble of the given color
+    # A dictionary or hashmap would make insertion way faster
+    # But the simpler arrays were easier to work with when drawing marbles
+    # Time Complexity: O(C)
+    def remove_marble(self, color):
+        self.total -= 1                             # remove 1 from total
+        self.counts[self.colors.index(color)] -= 1 # remove 1 from specified color
         self.count_marbles() # update cumulative totals for peek()
     #def
     
@@ -239,14 +262,11 @@ class BagOfMarbles:
         marble_index = random.randint(0, self.total-1)
         for index, count in enumerate(self.counts):
             if marble_index < count: # pick this color index
-                self.counts[index] -= 1
-                self.total -= 1
-                self.count_marbles() # this call is only needed for accurate peek()s
+                self.remove_marble(self.colors[index])
                 return self.colors[index]
             #if
             marble_index -= count
         #for
-        self.count_marbles() # this call is only needed for accurate peek()s
         return self.colors[-1] # if we got here, marble_index was too high, pick the last color
     #def
 #class
@@ -260,6 +280,8 @@ marbles["blue"] = 1
 marbles["yellow"] = 9
 
 bag = BagOfMarbles(list(marbles.keys()), list(marbles.values()))
+
+bag.add_marble("green")
 
 print("Staring Bag:", list(zip(bag.colors, bag.counts)), "\n")
 
